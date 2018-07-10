@@ -118,10 +118,6 @@
     /** ========================================================= */
     // Run this
     const store = createStore(rootReducer);
-    store.subscribe(() => {
-      console.log("The new state is: ", store.getState());
-    });
-
     // store.dispatch(addAction({ id: 1, name: "Learn TS", completed: false }));
     // store.dispatch(addAction({ id: 2, name: "Learn Reason", completed: false }));
     // store.dispatch(toggleAction(0));
@@ -139,12 +135,47 @@
       input.value = '';
 
       store.dispatch(addTodoAction({ id: generateId(), name, completed: false }));
-      const ul = document.getElementById('todos');
-      const todos = store.getState().todos.map(todo => todo.name)
-      console.log(todos)
+    }
+    function addGoal() {
+      const input = document.getElementById('goal')
+      const name = input.value;
+      input.value = '';
+
+      store.dispatch(addGoalAction({ id: generateId(), name, completed: false }));
     }
 
     document.getElementById('todoBtn').addEventListener('click', addTodo)
+    document.getElementById('goalBtn').addEventListener('click', addGoal)
+
+    store.subscribe(() => {
+      document.getElementById('todos').innerHTML = ''
+      document.getElementById('goals').innerHTML = ''
+
+      const { goals, todos } = store.getState();
+
+      todos.forEach(addTodoToDOM)
+      goals.forEach(addGoalToDOM)
+    });
+
+    function addTodoToDOM(todo) {
+      const node = document.createElement('li');
+      const text = document.createTextNode(todo.name);
+      node.appendChild(text)
+      node.style.textDecoration = todo.completed ? 'line-through' : 'none'
+      node.addEventListener('click', () => {
+        return store.dispatch(toggleTodoAction(todo.id))
+      })
+
+      document.getElementById('todos').appendChild(node)
+    }
+
+    function addGoalToDOM(goal) {
+      const node = document.createElement('li');
+      const text = document.createTextNode(goal.name);
+      node.appendChild(text)
+
+      document.getElementById('goals').appendChild(node)
+    }
 
   </script>
 </body>
