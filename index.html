@@ -6,6 +6,10 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta http-equiv="X-UA-Compatible" content="ie=edge">
   <title>Redux</title>
+  <script src='https://cdnjs.cloudflare.com/ajax/libs/redux/3.7.2/redux.min.js'></script>
+  <script src='https://unpkg.com/react@16.3.0-alpha.1/umd/react.development.js'></script>
+  <script src='https://unpkg.com/react-dom@16.3.0-alpha.1/umd/react-dom.development.js'></script>
+  <script src='https://unpkg.com/babel-standalone@6.15.0/babel.min.js'></script>
 </head>
 
 <body>
@@ -26,51 +30,18 @@
 
 
   <script type='text/javascript'>
-    /* =============================== REDUX IMPLEMENTATION ================================ */
-    function createStore(reducer) {
-      /* The store should have 4 parts:  */
-      // 1. Create the state
-      let state;
-
-      // 2. Get the state
-      const getState = () => state;
-
-      // 3. Subscribe to the state changes
-      let listeneres = [];
-      const subscribe = listener => {
-        // Push provided listener to array
-        listeneres.push(listener);
-        // Returns unsubscribe function to remove provided listener from array
-        // Ex.: this.unsubscribe = store.subscribe(() => {})
-        return () => {
-          listeneres = listeneres.filter(l => l !== listener);
-        };
-      };
-
-      // 4. Update the State
-      const dispatch = action => {
-        // call reducer to update current state
-        state = reducer(state, action);
-        // loop over listeneres and invoke them
-        listeneres.forEach(listener => listener());
-      };
-
-      return {
-        getState,
-        subscribe,
-        dispatch
-      };
+    function generateId() {
+      return Math.random().toString(36).substr(2, 9);
     }
-    /** ============================================================================================= */
-    /** ====================== Create reducers and action creators =================================== */
+    /** ====================== Redux reducers and action creators =================================== */
     // Reducers
     function todoReducer(state = [], action) {
       switch (action.type) {
-        case "ADD":
+        case "ADD_TODO":
           return [...state, action.todo];
-        case "REMOVE":
+        case "REMOVE_TODO":
           return state.filter(todo => todo.id !== action.id);
-        case "TOGGLE":
+        case "TOGGLE_TODO":
           return state.map(
             todo =>
               todo.id === action.id ? { ...todo, completed: !todo.completed } : todo
@@ -79,7 +50,6 @@
           return state;
       }
     }
-
     function goalsReducer(state = [], action) {
       switch (action.type) {
         case "ADD_GOAL":
@@ -91,44 +61,59 @@
       }
     }
 
-    function rootReducer(state = {}, action) {
-      return {
-        todos: todoReducer(state.todos, action),
-        goals: goalsReducer(state.goals, action)
-      };
-    }
-
+    // ACTION CREATORS
     const addTodoAction = payload => ({
-      type: "ADD",
+      type: "ADD_TODO",
       todo: payload
     });
     const removeTodoAction = id => ({
-      type: "REMOVE",
+      type: "REMOVE_TODO",
       id
     });
     const toggleTodoAction = id => ({
-      type: "TOGGLE",
+      type: "TOGGLE_TODO",
       id
     });
     const addGoalAction = payload => ({
       type: "ADD_GOAL",
       goal: payload
     });
-
-    /** ========================================================= */
-    // Run this
-    const store = createStore(rootReducer);
-    // store.dispatch(addAction({ id: 1, name: "Learn TS", completed: false }));
-    // store.dispatch(addAction({ id: 2, name: "Learn Reason", completed: false }));
-    // store.dispatch(toggleAction(0));
-    // store.dispatch(
-    //   addGoalAction({ id: 0, name: "Land a cool gig", completed: false })
-    // );
-
-    /** ===================DOM CODE============================= */
-    function generateId() {
-      return Math.random().toString(36).substr(2, 9);
+    /** ====================== REDUX Middleware =================================== */
+    // Middleware func takes a store as an argument, then it returns another function 
+    // with 'next' argument available, 
+    // 'next' is either next middleware in a chain or a dispatch function. 
+    // Then it returns another func with action argument available
+    const checker = (store) => (next) => (action) => {
+      if (
+        action.type === "ADD_TODO" &&
+        action.todo.name.toLowerCase().indexOf('bitcoin') !== -1
+      ) {
+        return alert("Nope. That's a bad idea.")
+      }
+      if (
+        action.type === "ADD_GOAL" &&
+        action.goal.name.toLowerCase().indexOf('bitcoin') !== -1
+      ) {
+        return alert("Nope. That's a bad idea.")
+      }
+      return next(action)
     }
+
+    const logger = (store) => (next) => (action) => {
+      console.group(action.type)
+      console.log('The action: ', action)
+      const result = next(action)
+      console.log('The new state: ', store.getState())
+      console.groupEnd()
+      return result
+    }
+    /** ================== Create Redux Store =================== */
+    const store = Redux.createStore(Redux.combineReducers({
+      todos: todoReducer,
+      goals: goalsReducer
+    }), Redux.applyMiddleware(checker, logger));
+
+    /** =================== Dispatch Actions ============================= */
     function addTodo() {
       const input = document.getElementById('todo')
       const name = input.value;
@@ -147,16 +132,7 @@
     document.getElementById('todoBtn').addEventListener('click', addTodo)
     document.getElementById('goalBtn').addEventListener('click', addGoal)
 
-    store.subscribe(() => {
-      document.getElementById('todos').innerHTML = ''
-      document.getElementById('goals').innerHTML = ''
-
-      const { goals, todos } = store.getState();
-
-      todos.forEach(addTodoToDOM)
-      goals.forEach(addGoalToDOM)
-    });
-
+    /** =================== DOM CODE ============================= */
     function addTodoToDOM(todo) {
       const node = document.createElement('li');
       const text = document.createTextNode(todo.name);
@@ -165,7 +141,6 @@
       node.addEventListener('click', () => {
         return store.dispatch(toggleTodoAction(todo.id))
       })
-
       document.getElementById('todos').appendChild(node)
     }
 
@@ -173,9 +148,18 @@
       const node = document.createElement('li');
       const text = document.createTextNode(goal.name);
       node.appendChild(text)
-
       document.getElementById('goals').appendChild(node)
     }
+
+    store.subscribe(() => {
+      const { goals, todos } = store.getState();
+
+      document.getElementById('todos').innerHTML = ''
+      document.getElementById('goals').innerHTML = ''
+
+      todos.forEach(addTodoToDOM)
+      goals.forEach(addGoalToDOM)
+    });
 
   </script>
 </body>
